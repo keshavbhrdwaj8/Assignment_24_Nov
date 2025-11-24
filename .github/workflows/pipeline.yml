@@ -1,0 +1,100 @@
+
+name: Terraform Azure CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: 'Module to run (resource2 only if you must use corporate RG)'
+        required: true
+        default: resource2
+      tf_action:
+        description: 'Terraform action (plan/apply/destroy)'
+        required: true
+        default: plan
+      rg_name:
+        description: 'Existing RG name (default: corporate RG)'
+        required: true
+        default: Keshav_Bhardwaj_RG
+      location:
+        description: 'Azure region (should match RG location)'
+        required: true
+        default: eastus
+      sa_name:
+        description: 'Storage Account base name (lowercase, 3-24 chars; a random suffix will be added)'
+        required: false
+        default: neha24novsa
+
+jobs:
+  tf:
+    runs-on: ubuntu-latest
+
+    # Export Azure credentials for the azurerm provider
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required env vars (fail fast if missing)
+        shell: bash
+        run: |
+          missing=0
+          for v in ARM_CLIENT_ID ARM_CLIENT_SECRET ARM_TENANT_ID ARM_SUBSCRIPTION_ID; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing environment variable: $v (check repo Secrets)"
+              missing=1
+            fi
+          done
+          if [ $missing -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Select module directory
+        id: setdir
+        shell: bash
+        run: |
+          MOD="${{ github.event.inputs.module }}"
+          if [ "$MOD" = "resource2" ]; then
+            echo "wd=modules/resource2" >> "$GITHUB_OUTPUT"
+          elif [ "$MOD" = "resource1" ]; then
+            # resource1 would only read the existing RG (data source). If you must not create RG, prefer resource2.
+            echo "wd=modules/resource1" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Invalid module: $MOD"
+            exit 1
+          fi
+
+      - name: Write tfvars from inputs
+        working-directory: ${{ steps.setdir.outputs.wd }}
+        shell: bash
+        run: |
+          cat > tfvars.auto.tfvars <<'EOF'
+          rg_name  = "${{ github.event.inputs.rg_name }}"
+          location = "${{ github.event.inputs.location }}"
+          sa_name  = "${{ github.event.inputs.sa_name }}"
+          tags = {
+            owner      = "${{ github.actor }}"
+            assignment = "24Nov"
+          }
+          EOF
+          echo "Generated tfvars.auto.tfvars:"
+          sed 's/.*/[redacted]/' tfvars.auto.tfvars >/dev/null || true
+
+      - name: Terraform Init
+        working-directory: ${{ steps.setdir.outputs.wd }}
+        run: terraform init -input=false
+
+      - name: Terraform Plan
+        if: ${{ github.event.inputs.tf_action != 'destroy' }}
+        working-directory: ${{ steps.setdir.outputs.wd }}
+        run: |
