@@ -25,12 +25,12 @@ resource "azurerm_storage_account" "this" {
 
 
 module "resource1" {
-  source = "../modules/resource1"
+  source = "./modules/resource1"
   rg_name = "Keshav_Bhardwaj_RG"
 }
 
 module "resource2" {
-  source = "../modules/resource2"
+  source = "./modules/resource2"
   rg_name = "Keshav_Bhardwaj_RG"
   location = "eastus"
   sa_name = "keshav24novsa"
