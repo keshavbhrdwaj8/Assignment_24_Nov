@@ -1,8 +1,3 @@
-
-provider "azurerm" {
-  features {}
-}
-
 # Read existing corporate RG; do NOT create a new one
 data "azurerm_resource_group" "rg" {
   name = var.rg_name
