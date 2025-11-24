@@ -23,7 +23,7 @@ on:
       sa_name:
         description: 'Storage Account base name (lowercase, 3-24 chars; a random suffix will be added)'
         required: false
-        default: neha24novsa
+        default: keshav24novsa
 
 jobs:
   tf:
