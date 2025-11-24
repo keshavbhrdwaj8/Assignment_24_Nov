@@ -35,6 +35,7 @@ variable "sa_name" {
   default     = "keshav24novsa"
 }
 
+
 variable "tags" {
   type        = map(string)
   description = "Resource tags"
@@ -59,6 +60,14 @@ resource "azurerm_storage_account" "this" {
   account_replication_type = "LRS"
   min_tls_version          = "TLS1_2"
   tags                     = var.tags
+
+  public_network_access_enabled = false
+  network_rules {
+    default_action = "Deny"
+    bypass = ["AzureServices"]
+    ip_rules = []
+    
+  }
 }
 
 output "storage_account_name" {
